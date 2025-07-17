@@ -1,0 +1,29 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/jammy64"
+  config.vm.box_version = "20240319.0.0"
+
+  # Manager node
+  config.vm.define "swarm-manager" do |manager|
+    manager.vm.hostname = "swarm-manager"
+    manager.vm.network "private_network", ip: "192.168.1.50"
+    manager.vm.provider "vmware_fusion" do |v|
+      v.memory = 2048
+      v.cpus = 2
+    end
+    manager.vm.provision "shell", path: "install-docker.sh"
+    manager.vm.provision "shell", path: "init-swarm.sh"
+  end
+
+  # Worker nodes
+  (1..2).each do |i|
+    config.vm.define "swarm-worker#{i}" do |worker|
+      worker.vm.hostname = "swarm-worker#{i}"
+      worker.vm.network "private_network", ip: "192.168.1.5#{i}"
+      worker.vm.provider "vmware_fusion" do |v|
+        v.memory = 1536
+        v.cpus = 1
+      end
+      worker.vm.provision "shell", path: "install-docker.sh"
+    end
+  end
+end
