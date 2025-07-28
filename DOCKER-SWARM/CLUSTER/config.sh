@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# Script permettant la connexion ssh native au machines et l'ajout de contexte par machines
 # Détecte les machines Vagrant actives et crée les contextes Docker automatiquement
 
 echo "[INFO] Détection des machines Vagrant actives..."
