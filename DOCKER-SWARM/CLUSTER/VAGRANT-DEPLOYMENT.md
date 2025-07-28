@@ -1,223 +1,124 @@
-# Déploiement Cluster Swarm avec Vagrant
+# Installation complète de Vagrant + VMware Fusion sur MacBook Apple Silicon
 
 ## Prérequis
-- Vagrant installé
-- VirtualBox ou VMware Fusion
-- Architecture ARM64 (Apple Silicon)
+- MacBook avec puce Apple Silicon (M1/M2/M3)
+- macOS à jour
+- Compte administrateur
 
-## Fichiers requis
-
-### Vagrantfile
-```ruby
-Vagrant.configure("2") do |config|
-  config.vm.box = "ubuntu/jammy64"
-  config.vm.box_version = "20240319.0.0"
-
-  # Manager node
-  config.vm.define "swarm-manager" do |manager|
-    manager.vm.hostname = "swarm-manager"
-    manager.vm.network "private_network", ip: "192.168.1.50"
-    manager.vm.provider "vmware_fusion" do |v|
-      v.memory = 2048
-      v.cpus = 2
-    end
-    manager.vm.provision "shell", path: "install-docker.sh"
-    manager.vm.provision "shell", path: "init-swarm.sh"
-  end
-
-  # Worker nodes
-  (1..2).each do |i|
-    config.vm.define "swarm-worker#{i}" do |worker|
-      worker.vm.hostname = "swarm-worker#{i}"
-      worker.vm.network "private_network", ip: "192.168.1.5#{i}"
-      worker.vm.provider "vmware_fusion" do |v|
-        v.memory = 1536
-        v.cpus = 1
-      end
-      worker.vm.provision "shell", path: "install-docker.sh"
-    end
-  end
-end
-```
-
-### install-docker.sh
+## Étape 1 : Installation de Homebrew (si pas déjà installé)
 ```bash
-#!/bin/bash
-set -e
-
-# Update system
-apt-get update -y
-apt-get upgrade -y
-
-# Install Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
-
-# Add vagrant user to docker group
-usermod -aG docker vagrant
-
-# Enable Docker service
-systemctl enable docker
-systemctl start docker
-
-# Install docker-compose
-curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-aarch64" -o /usr/local/bin/docker-compose
-chmod +x /usr/local/bin/docker-compose
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-### init-swarm.sh
+## Étape 2 : Installation de Vagrant
 ```bash
-#!/bin/bash
-set -e
-
-# Initialize Swarm on manager
-docker swarm init --advertise-addr 192.168.1.50
-
-# Save join token
-docker swarm join-token worker > /vagrant/join-token.txt
-
-echo "Swarm initialized. Join token saved to join-token.txt"
+brew tap hashicorp/tap
+brew install hashicorp/tap/vagrant
 ```
 
-### join-workers.sh
+## Étape 3 : Installation de VMware Fusion
+1. Créer un compte sur le site Broadcom/VMware
+2. Télécharger VMware Fusion Pro (licence personnelle gratuite)
+3. Installer le fichier `.dmg` téléchargé
+4. Lancer VMware Fusion et accepter la licence personnelle gratuite
+
+## Étape 4 : Installation du plugin Vagrant VMware Desktop
 ```bash
-#!/bin/bash
-set -e
-
-# Read join command from shared file
-JOIN_CMD=$(cat /vagrant/join-token.txt | grep "docker swarm join" | tr -d '\\' | tr -d '\n')
-
-# Execute join command
-eval $JOIN_CMD
-
-echo "Worker joined to swarm cluster"
+vagrant plugin install vagrant-vmware-desktop
 ```
 
-## Script de déploiement
+## Étape 5 : Téléchargement et installation du Vagrant VMware Utility
+1. Aller sur : https://developer.hashicorp.com/vagrant/install/vmware
+2. Télécharger le fichier `.pkg` pour macOS
+3. Double-cliquer sur le fichier `.pkg` et suivre l'installation
+4. Le service se lance automatiquement après installation
 
-### deploy-cluster.sh
+## Étape 6 : Configuration de la variable d'environnement
 ```bash
-#!/bin/bash
-set -e
-
-echo "=== Déploiement du cluster Swarm ==="
-
-# Create project directory
-mkdir -p swarm-cluster
-cd swarm-cluster
-
-# Create Vagrantfile
-cat > Vagrantfile << 'EOF'
-Vagrant.configure("2") do |config|
-  config.vm.box = "ubuntu/jammy64"
-  config.vm.box_version = "20240319.0.0"
-
-  config.vm.define "swarm-manager" do |manager|
-    manager.vm.hostname = "swarm-manager"
-    manager.vm.network "private_network", ip: "192.168.1.50"
-    manager.vm.provider "vmware_fusion" do |v|
-      v.memory = 2048
-      v.cpus = 2
-    end
-    manager.vm.provision "shell", path: "install-docker.sh"
-    manager.vm.provision "shell", path: "init-swarm.sh"
-  end
-
-  (1..2).each do |i|
-    config.vm.define "swarm-worker#{i}" do |worker|
-      worker.vm.hostname = "swarm-worker#{i}"
-      worker.vm.network "private_network", ip: "192.168.1.5#{i}"
-      worker.vm.provider "vmware_fusion" do |v|
-        v.memory = 1536
-        v.cpus = 1
-      end
-      worker.vm.provision "shell", path: "install-docker.sh"
-    end
-  end
-end
-EOF
-
-# Create Docker installation script
-cat > install-docker.sh << 'EOF'
-#!/bin/bash
-set -e
-apt-get update -y
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
-usermod -aG docker vagrant
-systemctl enable docker
-systemctl start docker
-curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-aarch64" -o /usr/local/bin/docker-compose
-chmod +x /usr/local/bin/docker-compose
-EOF
-
-# Create Swarm initialization script
-cat > init-swarm.sh << 'EOF'
-#!/bin/bash
-set -e
-docker swarm init --advertise-addr 192.168.1.50
-docker swarm join-token worker > /vagrant/join-token.txt
-echo "Swarm initialized"
-EOF
-
-# Create worker join script
-cat > join-workers.sh << 'EOF'
-#!/bin/bash
-set -e
-JOIN_CMD=$(cat /vagrant/join-token.txt | grep "docker swarm join" | tr -d '\\' | tr -d '\n')
-eval $JOIN_CMD
-echo "Worker joined"
-EOF
-
-chmod +x *.sh
-
-echo "=== Démarrage des VMs ==="
-vagrant up
-
-echo "=== Attente initialisation Swarm ==="
-sleep 30
-
-echo "=== Ajout des workers ==="
-vagrant ssh swarm-worker1 -c "sudo /vagrant/join-workers.sh"
-vagrant ssh swarm-worker2 -c "sudo /vagrant/join-workers.sh"
-
-echo "=== Vérification du cluster ==="
-vagrant ssh swarm-manager -c "docker node ls"
-
-echo "=== Cluster Swarm déployé avec succès ==="
-echo "Manager: 192.168.1.50"
-echo "Worker1: 192.168.1.51" 
-echo "Worker2: 192.168.1.52"
-echo ""
-echo "Connexion manager: vagrant ssh swarm-manager"
+echo 'export VAGRANT_DEFAULT_PROVIDER=vmware_fusion' >> ~/.zshrc
+source ~/.zshrc
 ```
 
-## Utilisation
+## Étape 7 : Redémarrage obligatoire
+```bash
+sudo reboot
+```
+
+## Étape 8 : Vérification de l'installation
+```bash
+# Vérifier Vagrant
+vagrant --version
+
+# Vérifier les plugins
+vagrant plugin list
+
+# Vérifier le service VMware Utility
+sudo launchctl list | grep vagrant-vmware-utility
+```
+
+## Étape 9 : Test de l'installation
+
+### Option A : Initialisation avec box générique (puis spécification lors du up)
+```bash
+# Créer un répertoire de test
+mkdir vagrant-test
+cd vagrant-test
+
+# Initialiser sans spécifier de box
+vagrant init
+
+# Modifier le Vagrantfile pour spécifier la box ARM64
+# Puis lancer avec la box spécifiée
+sudo vagrant up
+```
+
+### Option B : Initialisation directe avec box ARM64
+```bash
+# Créer un répertoire de test
+mkdir vagrant-test
+cd vagrant-test
+
+# Initialiser directement avec une box ARM64
+vagrant init gyptazy/ubuntu22.04-arm64
+
+# Lancer la VM
+sudo vagrant up
+```
+
+**Différence** : L'option A permet de créer un Vagrantfile générique puis de spécifier la box dans le fichier, tandis que l'option B configure directement la box lors de l'initialisation.
+
+## Commandes essentielles à retenir
 
 ```bash
-# Rendre le script exécutable
-chmod +x deploy-cluster.sh
+# Lancer des VMs spécifiques
+sudo vagrant up m1 w1
 
-# Déployer le cluster
-./deploy-cluster.sh
+# Se connecter à une VM
+sudo vagrant ssh m1
 
-# Connexion au manager
-cd swarm-cluster
-vagrant ssh swarm-manager
+# Voir l'état des VMs
+sudo vagrant status
 
-# Vérifier le cluster
-docker node ls
+# Arrêter les VMs
+sudo vagrant halt
+
+# Détruire les VMs
+sudo vagrant destroy -f
+
+# Redémarrer les services VMware si nécessaire
+sudo /Applications/VMware\ Fusion.app/Contents/Library/vmnet-cli --stop
+sudo /Applications/VMware\ Fusion.app/Contents/Library/vmnet-cli --start
 ```
 
-## Commandes de gestion
+## Notes importantes
+- **Toujours utiliser `sudo`** avec les commandes vagrant sur Apple Silicon
+- Utiliser uniquement des **boxes ARM64** compatibles (gyptazy/ubuntu22.04-arm64)
+- Le service VMware Utility doit être en cours d'exécution
+- En cas de problème réseau, redémarrer les services VMware
 
-```bash
-# Arrêter le cluster
-vagrant halt
+## Boxes ARM64 recommandées
+- `gyptazy/ubuntu22.04-arm64` (Ubuntu 22.04 Server)
+- `gyptazy/ubuntu24.04-server-arm64` (Ubuntu 24.04 Server)
+- `perk/ubuntu-2204-arm64` (Alternative)
 
-# Redémarrer le cluster  
-vagrant up
-
-# Détruire le cluster
-vagrant destroy -f
-```
+L'installation est maintenant opérationnelle pour votre environnement Docker Swarm.
