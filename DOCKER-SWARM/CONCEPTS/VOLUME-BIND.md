@@ -47,44 +47,21 @@ Ces cas d'usage tirent parti de la synchronisation instantanée et de l'accès d
 À l'inverse, il convient d'éviter le type BIND pour les données applicatives critiques, les environnements de production distribués, le stockage de bases de données et les fichiers nécessitant une haute disponibilité.
 Ces scénarios bénéficient d'avantage des volumes Docker traditionnels qui offrent une meilleure portabilité et gestion automatisée.
 
-
-  ---
+---
 
 ## Avantages
 
-### Performance optimale
-- **Accès direct** au système de fichiers sans couche intermédiaire
-- **Vitesse maximale** de lecture/écriture
-- **Latence minimale** pour les opérations fréquentes
-
-### Flexibilité de développement  
-- **Synchronisation instantanée** des modifications de code
-- **Hot-reload** automatique des applications
-- **Débogage facilité** avec accès direct aux fichiers
-
-### Simplicité d'implémentation
-- **Configuration intuitive** avec chemins explicites  
-- **Pas de gestion** de volumes Docker complexes
-- **Contrôle total** sur l'emplacement des données
+- Performance optimale
+- Flexibilité de développement  
+- Simplicité d'implémentation
 
 ---
 
 ## Inconvénients
 
-### Dépendance à l'infrastructure
-- **Chemins spécifiques** requis sur chaque nœud du cluster
-- **Portabilité limitée** entre environnements différents
-- **Complexité de déploiement** sur plusieurs machines
-
-### Risques de sécurité
-- **Exposition directe** du système de fichiers hôte
-- **Permissions partagées** pouvant créer des vulnérabilités
-- **Accès non contrôlé** aux ressources système
-
-### Limitations opérationnelles
-- **Sauvegarde manuelle** des données
-- **Pas de réplication** automatique Docker
-- **Gestion des pannes** plus complexe
+- Dépendance à l'infrastructure
+- Risques de sécurité
+- Limitations opérationnelles
 
 ---
 
